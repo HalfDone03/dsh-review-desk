@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="560" viewBox="0 0 1000 560" role="img" aria-labelledby="title desc">
+  <title id="title">dsh-review-desk architecture</title>
+  <desc id="desc">DSH Host plugin captures session events, calls a native helper, and runs Edge app mode plus a return panel on a private Win32 desktop. SwitchDesktop is only used for open and return.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+    <marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5b4bff"/>
+    </marker>
+    <style>
+      .bg { fill: #f6f8fa; }
+      .box { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.5; rx: 10; }
+      .box-accent { fill: #f0edff; stroke: #5b4bff; stroke-width: 1.5; rx: 10; }
+      .box-dark { fill: #24292f; stroke: #24292f; stroke-width: 1.5; rx: 10; }
+      .label { fill: #24292f; font: 600 15px "Segoe UI", "Microsoft YaHei", sans-serif; }
+      .label-sm { fill: #57606a; font: 12px "Segoe UI", "Microsoft YaHei", sans-serif; }
+      .label-light { fill: #ffffff; font: 600 15px "Segoe UI", "Microsoft YaHei", sans-serif; }
+      .label-light-sm { fill: #d8dee4; font: 12px "Segoe UI", "Microsoft YaHei", sans-serif; }
+      .mono { fill: #24292f; font: 12px "Cascadia Code", "Consolas", monospace; }
+      .mono-light { fill: #ffffff; font: 12px "Cascadia Code", "Consolas", monospace; }
+      .edge { stroke: #57606a; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+      .edge-accent { stroke: #5b4bff; stroke-width: 2; fill: none; marker-end: url(#arrow-accent); }
+      .dash { stroke: #8c959f; stroke-width: 1.5; fill: none; stroke-dasharray: 5 5; marker-end: url(#arrow); }
+      .note { fill: #57606a; font: 12px "Segoe UI", "Microsoft YaHei", sans-serif; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1000" height="560"/>
+
+  <text x="32" y="36" class="label" font-size="20">dsh-review-desk：私有复验桌面</text>
+  <text x="32" y="58" class="label-sm">UI isolation only. No second DSH instance, no moving the Electron window.</text>
+
+  <!-- Host -->
+  <rect class="box" x="32" y="88" width="290" height="330"/>
+  <text x="52" y="116" class="label">DSH Host 插件</text>
+  <text x="52" y="136" class="label-sm">Node / Cordis</text>
+
+  <rect class="box-accent" x="52" y="154" width="250" height="58"/>
+  <text x="68" y="177" class="label">/review-desk</text>
+  <text x="68" y="197" class="mono">prepare | open | return | close</text>
+
+  <rect class="box" x="52" y="226" width="250" height="82"/>
+  <text x="68" y="249" class="label">ReviewStore</text>
+  <text x="68" y="269" class="label-sm">session/event → packet</text>
+  <text x="68" y="287" class="label-sm">workspace summary at turn/end</text>
+
+  <rect class="box" x="52" y="322" width="250" height="70"/>
+  <text x="68" y="345" class="label">AuditLog</text>
+  <text x="68" y="365" class="label-sm">JSONL actions, no session text</text>
+
+  <!-- helper -->
+  <rect class="box" x="380" y="150" width="250" height="120"/>
+  <text x="400" y="178" class="label">HelperClient</text>
+  <text x="400" y="199" class="label-sm">serial queue + timeout</text>
+  <text x="400" y="220" class="mono">ensure / open / return</text>
+  <text x="400" y="240" class="mono">close / status / watchdog</text>
+
+  <!-- native -->
+  <rect class="box" x="690" y="130" width="270" height="160"/>
+  <text x="710" y="158" class="label">DshReviewDesktop.exe</text>
+  <text x="710" y="179" class="label-sm">C# / .NET Framework 4.8 x64</text>
+  <text x="710" y="203" class="mono">CreateDesktopW</text>
+  <text x="710" y="223" class="mono">CreateProcessW + lpDesktop</text>
+  <text x="710" y="243" class="mono">SwitchDesktop</text>
+  <text x="710" y="263" class="mono">WMI profile PID matching</text>
+
+  <!-- desktop -->
+  <rect class="box-dark" x="690" y="330" width="270" height="170"/>
+  <text x="710" y="358" class="label-light">Private Win32 Desktop</text>
+  <text x="710" y="378" class="label-light-sm">DSH-Review-Desk</text>
+  <rect x="710" y="396" width="230" height="42" rx="6" fill="#3b434d" stroke="#57606a"/>
+  <text x="724" y="422" class="mono-light">Edge app mode · DSH Web UI</text>
+  <rect x="710" y="448" width="230" height="34" rx="6" fill="#3b434d" stroke="#57606a"/>
+  <text x="724" y="470" class="mono-light">Return panel</text>
+
+  <!-- default desktop -->
+  <rect class="box" x="380" y="360" width="250" height="100"/>
+  <text x="400" y="388" class="label">Default Desktop</text>
+  <text x="400" y="409" class="label-sm">user's normal work</text>
+  <text x="400" y="430" class="label-sm">never switched by prepare</text>
+
+  <!-- edges -->
+  <path class="edge" d="M 302 183 H 380"/>
+  <text x="312" y="174" class="note">spawn helper</text>
+
+  <path class="edge" d="M 630 210 H 690"/>
+  <text x="642" y="201" class="note">args</text>
+
+  <path class="edge-accent" d="M 825 290 V 330"/>
+  <text x="838" y="314" class="note">launch on desktop</text>
+
+  <path class="dash" d="M 690 420 H 630"/>
+  <text x="570" y="412" class="note">SwitchDesktop only</text>
+  <text x="570" y="428" class="note">on open / return</text>
+
+  <path class="edge" d="M 177 298 V 322"/>
+  <text x="188" y="315" class="note">append</text>
+
+  <path class="edge" d="M 177 392 V 410 H 380" opacity="0.0"/>
+
+  <text x="32" y="470" class="label">Invariant</text>
+  <text x="32" y="492" class="label-sm">prepare / ensure never calls SwitchDesktop.</text>
+  <text x="32" y="510" class="label-sm">open is the only user-triggered switch into the review desk.</text>
+  <text x="32" y="528" class="label-sm">close always attempts to return to Default first.</text>
+</svg>

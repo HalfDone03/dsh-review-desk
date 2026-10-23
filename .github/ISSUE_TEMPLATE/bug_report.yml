@@ -1,0 +1,67 @@
+name: Bug report
+description: Report a reproducible problem
+title: "[bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Do not paste tokens, cookies, or private session content.
+  - type: input
+    id: version
+    attributes:
+      label: dsh-review-desk version
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: dsh
+    attributes:
+      label: DeepSeekRuntime / DSH version
+      placeholder: 0.2.1-rc.2
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 23H2 x64
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. /review-desk prepare
+        2. /review-desk status
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log
+      description: "`%TEMP%\\dsh-review-desktop.log` or audit lines; remove sensitive data."
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I did not paste tokens, cookies, or private session content.
+          required: true
+        - label: I searched existing issues.
+          required: true

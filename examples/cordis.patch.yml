@@ -1,0 +1,14 @@
+# Example profile override for dsh-review-desk.
+#
+# Merge this entry into the DSH profile's cordis.patch.yml.
+# Only the fields you want to change need to be listed.
+
+- id: review-desk
+  config:
+    desktopName: DSH-Review-Desk
+    panelSeconds: 0
+    autoReturnSeconds: 30
+    reviewLimit: 50
+    reviewIncludeToolArgs: false
+    audit: true
+    auditTurns: false

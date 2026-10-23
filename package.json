@@ -15,6 +15,15 @@
     "后台"
   ],
   "license": "MIT",
+  "author": "NewDataBag",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NewDataBag/dsh-review-desk.git"
+  },
+  "homepage": "https://github.com/NewDataBag/dsh-review-desk#readme",
+  "bugs": {
+    "url": "https://github.com/NewDataBag/dsh-review-desk/issues"
+  },
   "main": "./lib/index.js",
   "exports": {
     ".": "./lib/index.js",
@@ -26,8 +35,12 @@
     "helper",
     "scripts",
     "cordis.patch.yml",
+    "docs",
+    "examples",
     "README.md",
     "CHANGELOG.md",
+    "SECURITY.md",
+    "CONTRIBUTING.md",
     "LICENSE"
   ],
   "engines": {
@@ -40,6 +53,8 @@
     }
   },
   "scripts": {
-    "check": "node --check lib/index.js"
+    "check": "node scripts/check.mjs",
+    "test": "node scripts/selftest.mjs",
+    "build:helper": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-helper.ps1"
   }
 }

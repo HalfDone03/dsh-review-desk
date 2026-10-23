@@ -15,6 +15,7 @@ if (-not (Test-Path -LiteralPath $csc)) {
 & $csc /nologo /target:exe /platform:x64 `
     /r:System.Windows.Forms.dll `
     /r:System.Drawing.dll `
+    /r:System.Management.dll `
     /out:$out `
     $source
 
