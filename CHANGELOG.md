@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0
+## 0.2.0 — 2026-10-23
 
 - Rename project to `dsh-review-desk`.
 - Add `ReviewStore`: collect review packets from `session/event`; capture workspace summary at `turn/end`; never fabricate change types.

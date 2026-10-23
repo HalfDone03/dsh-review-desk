@@ -234,6 +234,21 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-helper.ps1
 - 测试不自动调用 `open`；
 - 不把工具参数值、token、会话正文写进审计或复验包。
 
+## 版本更新
+
+当前版本：**0.2.0**
+
+### 0.2.0 — 2026-10-23
+
+- 首个公开版本：私有 Win32 复验桌面 + 返回 panel；
+- `prepare` 只在后台准备，不切屏；`open` 是唯一显式切屏入口；
+- 新增 `ReviewStore`：从 `session/event` 生成复验包；
+- 新增 `AuditLog`：记录 prepare/open/return/close；
+- `/review-desk` 增加 `list`、`show <turn>`、`audit`；
+- 补齐安装/卸载脚本、架构文档、单测和 GitHub 发布材料。
+
+历史版本与构建产物见 [Releases](https://github.com/HalfDone03/dsh-review-desk/releases)，逐条记录见 [CHANGELOG.md](CHANGELOG.md)。
+
 ## License
 
 [MIT](LICENSE)
