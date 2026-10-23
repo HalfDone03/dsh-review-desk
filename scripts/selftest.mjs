@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AuditLog } from "../lib/audit.js";
-import { normalizeConfig } from "../lib/index.js";
+import { apply, normalizeConfig } from "../lib/index.js";
 import { ReviewStore } from "../lib/review.js";
 
 const session = {
@@ -143,4 +143,38 @@ function feedSuccess(store) {
 	}
 }
 
-console.log("OK 6 test groups");
+// 7. apply must wait for the commands service instead of reading it eagerly.
+{
+	let definition;
+	let injected;
+	const ctx = {
+		inject(services, callback) {
+			injected = { services, callback };
+		},
+		get(name) {
+			if (name === "commands") throw new Error("commands must be injected, not read eagerly");
+			return undefined;
+		},
+		provide() {},
+		on() {},
+		effect() {},
+		logger: { info() {}, warn() {} }
+	};
+	apply(ctx, {
+		statePath: join(tmpdir(), "dsh-review-desk-apply-state.txt"),
+		profilePath: join(tmpdir(), "dsh-review-desk-apply-profile")
+	});
+	assert.deepEqual(injected.services, ["commands"]);
+	injected.callback({
+		commands: {
+			register(value) {
+				definition = value;
+				return () => {};
+			}
+		}
+	});
+	assert.equal(definition.name, "review-desk");
+	assert.equal(typeof definition.handler, "function");
+}
+
+console.log("OK 7 test groups");
