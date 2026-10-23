@@ -1,4 +1,4 @@
-node_modules/
+﻿node_modules/
 *.log
 *.tmp
 *.jsonl
@@ -12,3 +12,5 @@ node_modules/
 edge-profile/
 .DS_Store
 Thumbs.db
+dist/
+*.tgz
