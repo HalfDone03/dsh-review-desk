@@ -15,14 +15,14 @@
     "后台"
   ],
   "license": "MIT",
-  "author": "NewDataBag",
+  "author": "HalfDone03",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NewDataBag/dsh-review-desk.git"
+    "url": "git+https://github.com/HalfDone03/dsh-review-desk.git"
   },
-  "homepage": "https://github.com/NewDataBag/dsh-review-desk#readme",
+  "homepage": "https://github.com/HalfDone03/dsh-review-desk#readme",
   "bugs": {
-    "url": "https://github.com/NewDataBag/dsh-review-desk/issues"
+    "url": "https://github.com/HalfDone03/dsh-review-desk/issues"
   },
   "main": "./lib/index.js",
   "exports": {

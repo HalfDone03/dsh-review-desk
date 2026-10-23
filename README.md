@@ -7,7 +7,7 @@
 ![dsh](https://img.shields.io/badge/dsh-%3E%3D0.2.1--rc.2-5B4BFF)
 ![license](https://img.shields.io/badge/license-MIT-green)
 ![status](https://img.shields.io/badge/status-0.2.0%20preview-orange)
-[![ci](https://github.com/NewDataBag/dsh-review-desk/actions/workflows/ci.yml/badge.svg)](https://github.com/NewDataBag/dsh-review-desk/actions/workflows/ci.yml)
+[![ci](https://github.com/HalfDone03/dsh-review-desk/actions/workflows/ci.yml/badge.svg)](https://github.com/HalfDone03/dsh-review-desk/actions/workflows/ci.yml)
 
 ---
 

@@ -22,7 +22,7 @@ Please do not open a public issue for a vulnerability.
 
 Use GitHub Security Advisories on this repository:
 
-<https://github.com/NewDataBag/dsh-review-desk/security/advisories/new>
+<https://github.com/HalfDone03/dsh-review-desk/security/advisories/new>
 
 Include:
 
