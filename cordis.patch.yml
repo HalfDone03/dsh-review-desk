@@ -21,3 +21,5 @@
         reviewIncludeToolArgs: false
         audit: true
         auditTurns: false
+        runTimeoutSeconds: 120
+        runOutputLimit: 20000

@@ -15,6 +15,15 @@ internal static class DshReviewDesktop
     private const uint DESKTOP_ALL_ACCESS = 0x10000000;
     private const uint DESKTOP_READOBJECTS = 0x0001;
     private const uint CREATE_NO_WINDOW = 0x08000000;
+    private const uint GENERIC_WRITE = 0x40000000;
+    private const uint FILE_SHARE_READ = 0x00000001;
+    private const uint FILE_SHARE_WRITE = 0x00000002;
+    private const uint CREATE_ALWAYS = 2;
+    private const uint FILE_ATTRIBUTE_NORMAL = 0x80;
+    private const uint STARTF_USESTDHANDLES = 0x00000100;
+    private const uint WAIT_TIMEOUT = 0x00000102;
+    private const int STD_INPUT_HANDLE = -10;
+    private static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
     private const int UOI_NAME = 2;
 
     private static readonly string DefaultStatePath = Path.Combine(
@@ -30,7 +39,7 @@ internal static class DshReviewDesktop
             try { Console.OutputEncoding = Encoding.UTF8; } catch { }
             if (args.Length == 0)
             {
-                Console.Error.WriteLine("usage: DshReviewDesktop.exe <ensure|open|return|close|status|panel|watchdog> [options]");
+                Console.Error.WriteLine("usage: DshReviewDesktop.exe <ensure|open|return|close|status|run|panel|watchdog> [options]");
                 return 2;
             }
 
@@ -45,6 +54,7 @@ internal static class DshReviewDesktop
                 case "return": return ReturnHome(a);
                 case "close": return Close(a);
                 case "status": return Status(a);
+                case "run": return Run(a);
                 case "panel": return Panel(a);
                 case "watchdog": return Watchdog(a);
                 default:
@@ -429,6 +439,116 @@ internal static class DshReviewDesktop
         return IntPtr.Zero;
     }
 
+    private static int Run(Dictionary<string, string> a)
+    {
+        string desktop = Get(a, "--desktop", "DSH-Review-Desk");
+        string script = Get(a, "--script", "");
+        string log = Get(a, "--log", "");
+        string cwd = Get(a, "--cwd", "");
+        int timeout = GetInt(a, "--timeout", 120000);
+        if (script.Length == 0 || log.Length == 0)
+        {
+            Console.Error.WriteLine("run requires --script and --log");
+            return 4;
+        }
+
+        string fullScript = Path.GetFullPath(script);
+        string fullLog = Path.GetFullPath(log);
+        if (!File.Exists(fullScript))
+        {
+            Console.Error.WriteLine("script not found: " + fullScript);
+            return 4;
+        }
+        Directory.CreateDirectory(Path.GetDirectoryName(fullLog));
+        Directory.CreateDirectory(Path.GetDirectoryName(fullScript));
+
+        IntPtr desk = OpenOrCreateDesktop(desktop);
+        if (desk == IntPtr.Zero)
+        {
+            Console.Error.WriteLine("desktop unavailable: " + desktop + " err=" + Marshal.GetLastWin32Error());
+            return 4;
+        }
+        CloseDesktop(desk);
+
+        string powershell = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.System),
+            @"WindowsPowerShell\v1.0\powershell.exe");
+        if (!File.Exists(powershell)) powershell = "powershell.exe";
+
+        SECURITY_ATTRIBUTES sa = new SECURITY_ATTRIBUTES();
+        sa.nLength = Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES));
+        sa.bInheritHandle = true;
+        IntPtr hLog = CreateFileW(
+            fullLog,
+            GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            ref sa,
+            CREATE_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL,
+            IntPtr.Zero);
+        if (hLog == INVALID_HANDLE_VALUE)
+        {
+            Console.Error.WriteLine("cannot open log: " + fullLog + " err=" + Marshal.GetLastWin32Error());
+            return 4;
+        }
+
+        STARTUPINFO si = new STARTUPINFO();
+        si.cb = Marshal.SizeOf(typeof(STARTUPINFO));
+        si.lpDesktop = @"WinSta0\" + desktop;
+        si.dwFlags = (int)STARTF_USESTDHANDLES;
+        si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+        si.hStdOutput = hLog;
+        si.hStdError = hLog;
+        PROCESS_INFORMATION pi = new PROCESS_INFORMATION();
+        string commandLine = "\"" + powershell + "\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" + fullScript + "\"";
+        string currentDirectory = cwd.Length > 0 ? Path.GetFullPath(cwd) : null;
+
+        bool ok = CreateProcessW(
+            powershell,
+            commandLine,
+            IntPtr.Zero,
+            IntPtr.Zero,
+            true,
+            CREATE_NO_WINDOW,
+            IntPtr.Zero,
+            currentDirectory,
+            ref si,
+            out pi);
+        int createError = ok ? 0 : Marshal.GetLastWin32Error();
+        CloseHandle(hLog);
+        Log("run CreateProcess desktop=" + desktop + " ok=" + ok + " err=" + createError);
+        if (!ok)
+        {
+            Console.Error.WriteLine("CreateProcess failed err=" + createError);
+            return 5;
+        }
+
+        uint wait = WaitForSingleObject(pi.hProcess, (uint)Math.Max(1000, timeout));
+        bool timedOut = wait == WAIT_TIMEOUT;
+        int pid = Convert.ToInt32(pi.dwProcessId);
+        if (timedOut)
+        {
+            // TerminateProcess 只结束 powershell 本身；任务可能已经派生了
+            // GUI/子进程，必须按进程树收掉，否则它会留在私有桌面上。
+            // 先按进程树杀，再 TerminateProcess；否则父进程先退出后
+            // taskkill /T 可能找不到树，留下 GUI 子进程。
+            KillPid(pid);
+            TerminateProcess(pi.hProcess, 124);
+            WaitForSingleObject(pi.hProcess, 5000);
+        }
+        uint exitCode = 0;
+        GetExitCodeProcess(pi.hProcess, out exitCode);
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+
+        Console.WriteLine(
+            "OK run pid=" + pid +
+            " exit=" + exitCode +
+            " timeout=" + (timedOut ? 1 : 0) +
+            " log=" + fullLog);
+        return timedOut ? 124 : (int)exitCode;
+    }
+
     private static bool LaunchOnDesktop(string exe, string args, string desktop, bool noWindow, out int pid)
     {
         pid = 0;
@@ -640,6 +760,14 @@ internal static class DshReviewDesktop
         public uint dwThreadId;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SECURITY_ATTRIBUTES
+    {
+        public int nLength;
+        public IntPtr lpSecurityDescriptor;
+        public bool bInheritHandle;
+    }
+
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern IntPtr CreateDesktopW(string lpszDesktop, IntPtr lpszDevice, IntPtr pDevmode, int dwFlags, uint dwDesiredAccess, IntPtr lpsa);
 
@@ -682,4 +810,26 @@ internal static class DshReviewDesktop
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool CloseHandle(IntPtr hObject);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern IntPtr CreateFileW(
+        string lpFileName,
+        uint dwDesiredAccess,
+        uint dwShareMode,
+        ref SECURITY_ATTRIBUTES lpSecurityAttributes,
+        uint dwCreationDisposition,
+        uint dwFlagsAndAttributes,
+        IntPtr hTemplateFile);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetExitCodeProcess(IntPtr hProcess, out uint lpExitCode);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetStdHandle(int nStdHandle);
 }

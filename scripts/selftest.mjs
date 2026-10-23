@@ -177,4 +177,39 @@ function feedSuccess(store) {
 	assert.equal(typeof definition.handler, "function");
 }
 
-console.log("OK 7 test groups");
+// 8. Private-desktop command runner: config and empty-command guard.
+{
+	const config = normalizeConfig({});
+	assert.equal(config.runTimeoutSeconds, 120);
+	assert.equal(config.runOutputLimit, 20000);
+	assert.throws(() => normalizeConfig({ runTimeoutSeconds: -1 }), RangeError);
+	assert.throws(() => normalizeConfig({ runOutputLimit: 10 }), RangeError);
+
+	let definition;
+	const ctx = {
+		inject(_services, callback) {
+			callback({
+				commands: {
+					register(value) {
+						definition = value;
+						return () => {};
+					}
+				}
+			});
+		},
+		get() { return undefined; },
+		provide() {},
+		on() {},
+		effect() {},
+		logger: { info() {}, warn() {} }
+	};
+	apply(ctx, {
+		statePath: join(tmpdir(), "dsh-review-desk-run-state.txt"),
+		profilePath: join(tmpdir(), "dsh-review-desk-run-profile")
+	});
+	const result = await definition.handler({ rawInput: "run" });
+	assert.equal(result.kind, "error");
+	assert.match(result.text, /用法/u);
+}
+
+console.log("OK 8 test groups");

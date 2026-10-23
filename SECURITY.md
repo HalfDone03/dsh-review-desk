@@ -7,12 +7,14 @@
 - The private desktop runs in the same Windows logon session and with the same user token as the default desktop.
 - It does not prevent another process from reading the same files, network, or DSH session store.
 - The native helper does not read DSH session content.
-- The host plugin does not write tool output, tool argument values, tokens, or session text to audit logs by default.
+- `/review-desk run` executes arbitrary PowerShell with the current user's full token and filesystem/network access. It is a convenience for verification tasks, **not** a sandbox. Do not run untrusted commands with it.
+- The host plugin does not write tool output, tool argument values, tokens, or session text to audit logs by default. The `run` audit entry keeps only a 200-character command prefix.
 
 ## Supported versions
 
 | Version | Supported |
 |---|---|
+| 0.3.x | yes |
 | 0.2.x | yes |
 | 0.1.x | no |
 

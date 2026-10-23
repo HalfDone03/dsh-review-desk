@@ -1,12 +1,12 @@
 # dsh-review-desk
 
-> 把 DSH Web UI 放到一个私有 Win32 桌面：需要复验时切过去，平时主桌面完全不受影响。
+> 把 DSH Web UI 和复验任务放到一个私有 Win32 桌面：需要复验时切过去，平时主桌面完全不受影响。
 
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D4)
 ![node](https://img.shields.io/badge/node-%3E%3D20.3-339933)
 ![dsh](https://img.shields.io/badge/dsh-%3E%3D0.2.1--rc.2-5B4BFF)
 ![license](https://img.shields.io/badge/license-MIT-green)
-![status](https://img.shields.io/badge/status-0.2.0%20preview-orange)
+![status](https://img.shields.io/badge/status-0.3.0%20preview-orange)
 
 ---
 
@@ -16,6 +16,8 @@ DSH 在跑长任务时，用户仍然要在当前桌面工作。把 DSH 窗口�
 
 `dsh-review-desk` 不改 DSH 的 Electron 窗口，也不启动第二个 DSH 实例。它在后台创建一个**私有 Win32 桌面**，把 Edge app 模式的 DSH Web UI 放进去；只有用户显式执行 `open` 时才切过去。
 
+`run` 还可以把一段 PowerShell 任务直接放到这个私有桌面执行：任务进程及其 GUI 子进程都不会出现在当前桌面。
+
 ## 它做什么
 
 - `prepare`：**只在后台**创建/复用私有桌面，启动 Edge 和返回 panel，**不切屏**；
@@ -23,13 +25,14 @@ DSH 在跑长任务时，用户仍然要在当前桌面工作。把 DSH 窗口�
 - `return`：切回默认桌面，并尽量恢复原前台窗口；
 - `close`：切回默认桌面，结束 Edge/panel，删除 Edge profile；
 - `status`：查看活动桌面和进程；
+- `run`：在复验桌面里执行 PowerShell 任务，返回退出码和输出，**不切屏**；
 - `list` / `show`：查看最近复验记录；
 - `audit`：查看桌面动作审计。
 
 ## 它不做什么
 
 - 不是 Windows 11 虚拟桌面：私有桌面没有 Explorer 任务栏，也不在 `Win+Tab` 列表里；
-- 不是安全沙箱：它只隔离 UI，不隔离权限、文件、网络；
+- 不是安全沙箱：它只隔离 UI，不隔离权限、文件、网络；`run` 以当前用户权限执行，不做权限降级；
 - 不做硬性 CPU/GPU 隔离：资源低干扰是 best-effort；
 - 不自动审批、不自动复验、不复制会话；
 - 不在任何自动流程里调用 `open`。
@@ -57,6 +60,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 
 ```text
 /review-desk prepare     # 后台准备，不切屏
+/review-desk run Get-ChildItem   # 在复验桌面跑任务，不切屏
 /review-desk list        # 看最近复验记录
 /review-desk open        # 显式切到复验桌面
 /review-desk return      # 切回工作桌面
@@ -65,6 +69,24 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 
 `prepare` 后 `status` 应该显示 `active=Default`，但 `desktop=DSH-Review-Desk`、`browserPid`/`panelPid` 已存在。这就是正确状态：**桌面在后台，当前桌面没变**。
 
+### 在复验桌面跑任务
+
+```text
+/review-desk run Start-Sleep 5; Get-ChildItem
+/review-desk run notepad
+/review-desk run & 'C:\path\verify.ps1'
+```
+
+`run` 的行为：
+
+- 用 `STARTUPINFO.lpDesktop = WinSta0\DSH-Review-Desk` 启动 `powershell.exe`；
+- 任务派生的 GUI 子进程继承私有桌面，不会弹到当前桌面；
+- 等待任务结束，把 stdout/stderr 和 exit code 返回会话；
+- 超时由 `runTimeoutSeconds` 控制，超时会按进程树终止；
+- **不调用 `SwitchDesktop`**，当前桌面保持不变。
+
+边界：`run` 是命令级任务通道，不会复制 DSH 的 Agent 循环；它适合验证脚本、测试命令、启动需要隔离窗口的程序。完整的“第二个 DSH Agent 在私有桌面跑”仍是后续工作。
+
 ## 工作方式
 
 ![架构](docs/architecture.svg)
@@ -72,9 +94,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 1. Host 插件通过 `ctx.get("webServer").getOrigin()` 拿到当前 DSH Web UI 地址；
 2. `DshReviewDesktop.exe` 调用 `CreateDesktopW` 创建私有桌面；
 3. 用 `CreateProcessW` + `STARTUPINFO.lpDesktop` 启动 Edge app 模式和返回 panel；
-4. `SwitchDesktop` 只在 `open`/`return` 时调用；
-5. Edge 进程按 `--user-data-dir` 的绝对 profile 路径通过 WMI 识别，避免 Edge 根进程退出后漏杀子进程；
-6. panel 是私有桌面内唯一可见的返回入口；全局快捷键尚未接入 Host。
+4. `run` 用同一个 `lpDesktop` 启动 `powershell.exe`，任务输出重定向到日志文件，GUI 子进程继承私有桌面；
+5. `SwitchDesktop` 只在 `open`/`return` 时调用；
+6. Edge 进程按 `--user-data-dir` 的绝对 profile 路径通过 WMI 识别，避免 Edge 根进程退出后漏杀子进程；
+7. panel 是私有桌面内唯一可见的返回入口；全局快捷键尚未接入 Host。
 
 更细的设计见 [docs/architecture.md](docs/architecture.md)。
 
@@ -87,6 +110,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 | `/review-desk return` | 切回默认桌面 | 是 |
 | `/review-desk close` | 结束进程并清理 profile | 先切回 |
 | `/review-desk status` | 查看活动桌面/进程 | 否 |
+| `/review-desk run <命令>` | 在复验桌面执行 PowerShell，返回输出 | 否 |
 | `/review-desk list` | 最近 20 条复验记录 | 否 |
 | `/review-desk show <turn>` | 单条复验记录 JSON | 否 |
 | `/review-desk audit` | 最近 20 条审计动作 | 否 |
@@ -121,6 +145,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 | `audit` | `true` | 是否写审计日志 |
 | `auditPath` | `""` | 审计文件；留空用状态文件同目录的 `audit.jsonl` |
 | `auditTurns` | `false` | 是否把每个 `turn/end` 写审计 |
+| `runTimeoutSeconds` | `120` | `run` 任务超时秒数；超时会终止该任务 |
+| `runOutputLimit` | `20000` | 返回给会话的最大输出字符数 |
 
 ## 复验记录
 
