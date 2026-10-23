@@ -1,0 +1,23 @@
+# dsh-review-desk bundle patch.
+#
+# 只挂 Host 侧插件；复验桌面是 Edge + 私有 Win32 桌面，不需要浏览器半身。
+#
+# profile 覆盖示例：
+#
+#   - id: review-desk
+#     config:
+#       autoReturnSeconds: 30
+#
+- insert:
+    - id: review-desk
+      name: 'dsh-review-desk'
+      config:
+        enabled: true
+        desktopName: 'DSH-Review-Desk'
+        panelSeconds: 0
+        autoReturnSeconds: 0
+        closeOnDispose: true
+        reviewLimit: 50
+        reviewIncludeToolArgs: false
+        audit: true
+        auditTurns: false

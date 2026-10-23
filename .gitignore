@@ -1,0 +1,14 @@
+node_modules/
+*.log
+*.tmp
+*.jsonl
+.state*
+.test-*
+.prep*
+.cmd-*
+.rev*
+.audit*
+.edge-profile/
+edge-profile/
+.DS_Store
+Thumbs.db

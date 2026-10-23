@@ -1,0 +1,45 @@
+{
+  "name": "dsh-review-desk",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "DSH 后台复验桌面：把 DSH 放到私有 Win32 桌面，需要复验时切过去，平时不影响当前桌面。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek",
+    "harness",
+    "windows",
+    "desktop",
+    "review",
+    "复验桌面",
+    "后台"
+  ],
+  "license": "MIT",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "bin",
+    "helper",
+    "scripts",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.3.0",
+    "dsh": ">=0.2.1-rc.2"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "check": "node --check lib/index.js"
+  }
+}
