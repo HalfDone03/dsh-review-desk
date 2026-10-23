@@ -7,7 +7,6 @@
 ![dsh](https://img.shields.io/badge/dsh-%3E%3D0.2.1--rc.2-5B4BFF)
 ![license](https://img.shields.io/badge/license-MIT-green)
 ![status](https://img.shields.io/badge/status-0.2.0%20preview-orange)
-[![ci](https://github.com/HalfDone03/dsh-review-desk/actions/workflows/ci.yml/badge.svg)](https://github.com/HalfDone03/dsh-review-desk/actions/workflows/ci.yml)
 
 ---
 
@@ -160,6 +159,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-helper.ps1
 node .\scripts\check.mjs
 node .\scripts\selftest.mjs
 ```
+
+GitHub Actions 工作流在 [docs/ci.yml.example](docs/ci.yml.example)；复制到 `.github/workflows/ci.yml` 即可启用（需要带 `workflow` scope 的凭据）。
 
 `selftest.mjs` 覆盖：
 
