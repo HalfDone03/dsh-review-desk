@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2 — 2026-10-25
+
+- Implement the panel return hotkey the UI already advertised: the panel registers `Ctrl+Alt+Shift+F12` on its own window (the combination verified in the M0 spike) and posts the switch off `WndProc`, so returning no longer depends on clicking the panel. Registration failure is logged and leaves the buttons working.
+- Make the panel's “关闭复验桌面” button match its label: it now runs the `close` cleanup (return, end Edge, drop the Edge profile, delete state) instead of just switching back like the “返回工作桌面” button. The panel gets `--state` from `ensure` and removes its own pid from the state copy so `CloseState` cannot kill it before the profile deletion.
+- Document the hotkey in README and `docs/architecture.md`.
+
 ## 0.4.1 — 2026-10-24
 
 - Keep the private-desktop handle open until the task process exits; closing it early destroyed an otherwise-unused desktop and made `DeepSeekRuntime.exe` fail with `0xC0000142`.

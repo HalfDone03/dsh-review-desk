@@ -25,6 +25,13 @@ internal static class DshReviewDesktop
     private const int STD_INPUT_HANDLE = -10;
     private static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
     private const int UOI_NAME = 2;
+    // Panel return hotkey: Ctrl+Alt+Shift+F12, the combination verified in the M0 spike.
+    private const int WM_HOTKEY = 0x0312;
+    private const int HOTKEY_ID_RETURN = 0xB001;
+    private const uint MOD_ALT = 0x0001;
+    private const uint MOD_CONTROL = 0x0002;
+    private const uint MOD_SHIFT = 0x0004;
+    private const uint VK_F12 = 0x7B;
 
     private static readonly string DefaultStatePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -136,7 +143,7 @@ internal static class DshReviewDesktop
         if (panelPid <= 0)
         {
             string self = Assembly.GetExecutingAssembly().Location;
-            string panelArgs = "panel --desktop \"" + desktop + "\" --seconds " + Get(a, "--panelSeconds", "0");
+            string panelArgs = "panel --desktop \"" + desktop + "\" --state \"" + statePath + "\" --seconds " + Get(a, "--panelSeconds", "0");
             int pid;
             if (!LaunchOnDesktop(self, panelArgs, desktop, true, out pid))
             {
@@ -254,16 +261,43 @@ internal static class DshReviewDesktop
         return 0;
     }
 
+    /// <summary>
+    /// Panel form that reacts to the return hotkey.
+    /// The hotkey is registered on this window, so it only fires while the
+    /// private desktop is the active desktop - which is exactly when the user
+    /// needs it.
+    /// </summary>
+    private sealed class PanelForm : Form
+    {
+        public Action ReturnHotkeyPressed;
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_HOTKEY && m.WParam.ToInt32() == HOTKEY_ID_RETURN)
+            {
+                if (ReturnHotkeyPressed != null)
+                {
+                    // Do not switch desktops inside WndProc; post to the message loop.
+                    try { BeginInvoke(ReturnHotkeyPressed); } catch { }
+                }
+                return;
+            }
+            base.WndProc(ref m);
+        }
+    }
+
     private static int Panel(Dictionary<string, string> a)
     {
         string desktop = Get(a, "--desktop", "DSH-Review-Desk");
+        string statePath = Get(a, "--state", "");
         int seconds = GetInt(a, "--seconds", 0);
 
         try { SetProcessDPIAware(); } catch { }
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        Form form = new Form();
+        PanelForm form = new PanelForm();
+        form.ReturnHotkeyPressed = delegate { ReturnFromPanel(form); };
         form.Text = "DSH 复验桌面";
         form.FormBorderStyle = FormBorderStyle.None;
         form.StartPosition = FormStartPosition.Manual;
@@ -275,6 +309,17 @@ internal static class DshReviewDesktop
         form.Height = 122;
         form.Padding = new Padding(16);
         form.FormClosing += delegate(object sender, FormClosingEventArgs e) { Log("panel closing reason=" + e.CloseReason); };
+        // Best-effort: if another window already owns the combination the panel
+        // still works through its buttons, so a failure must not break the panel.
+        form.HandleCreated += delegate
+        {
+            bool hot = RegisterHotKey(form.Handle, HOTKEY_ID_RETURN, MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F12);
+            Log("panel hotkey ctrl+alt+shift+f12 registered=" + hot + (hot ? "" : " err=" + Marshal.GetLastWin32Error()));
+        };
+        form.FormClosed += delegate
+        {
+            try { UnregisterHotKey(form.Handle, HOTKEY_ID_RETURN); } catch { }
+        };
 
         Rectangle wa = Screen.PrimaryScreen.WorkingArea;
         form.Location = new Point(wa.Right - form.Width - 24, wa.Bottom - form.Height - 24);
@@ -318,7 +363,7 @@ internal static class DshReviewDesktop
         quit.Width = 132;
         quit.Height = 34;
         quit.Location = new Point(160, 76);
-        quit.Click += delegate { ReturnFromPanel(form); };
+        quit.Click += delegate { CloseFromPanel(form, statePath); };
         form.Controls.Add(quit);
 
         if (seconds > 0)
@@ -356,6 +401,25 @@ internal static class DshReviewDesktop
             SwitchDesktop(desk);
             CloseDesktop(desk);
         }
+        form.Close();
+        Application.Exit();
+    }
+
+    /// <summary>
+    /// "关闭复验桌面" button: return to the working desktop and run the same
+    /// cleanup as `close` (end Edge, drop the Edge profile, delete state).
+    /// CloseState cannot be reused as-is here because it would kill this very
+    /// panel process before the profile deletion starts, so the panel drops its
+    /// own pid from the state copy first.
+    /// </summary>
+    private static void CloseFromPanel(Form form, string statePath)
+    {
+        Log("close from panel requested");
+        Dictionary<string, string> state = statePath.Length > 0
+            ? ReadState(statePath)
+            : new Dictionary<string, string>();
+        state.Remove("panelPid");
+        CloseState(state, statePath);
         form.Close();
         Application.Exit();
     }
@@ -877,6 +941,12 @@ internal static class DshReviewDesktop
 
     [DllImport("user32.dll")]
     private static extern bool SetProcessDPIAware();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern bool CreateProcessW(

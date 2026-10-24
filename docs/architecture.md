@@ -22,7 +22,7 @@
 | Native helper | `helper/DshReviewDesktop.cs` | 桌面创建/切换/关闭、Edge/panel、任务进程、短路径、WMI 进程识别 |
 | Edge app mode | 外部进程 | 加载 DSH Web UI |
 | Headless worker | `DeepSeekRuntime.exe` + 独立 profile | 一次完整 Agent 任务，运行在私有桌面 |
-| Return panel | helper 内 WinForms | 私有桌面内唯一的可见返回入口 |
+| Return panel | helper 内 WinForms | 私有桌面内唯一的可见返回入口：按钮 + `Ctrl+Alt+Shift+F12` 热键 |
 
 ## 启动与准备
 
@@ -85,6 +85,11 @@ panelPid=...
 1. `SwitchDesktop(Default)`；
 2. `SetForegroundWindow` 恢复原前台窗口（best-effort）；
 3. 不结束 Edge/panel。
+
+私有桌面里还有两条等价的返回路径，都由 panel 进程提供（`panel --state`）：
+
+- **返回工作桌面** 按钮 / `Ctrl+Alt+Shift+F12`：等同 `return`，Edge 留在后台；
+- **关闭复验桌面** 按钮：等同 `close`（先返回 Default，再收 Edge、删 Edge profile、删 state）；panel 会先把自己的 pid 从 state 副本里去掉，否则 `CloseState` 会在删 profile 之前把自己杀掉。
 
 ### `close`
 
@@ -178,5 +183,5 @@ summary 结构：
 - 私有桌面没有 Explorer 任务栏，也不在 `Win+Tab`；
 - 焦点恢复 best-effort；
 - 多显示器 / DPI / RDP / 全屏 / 锁屏 / UAC 未系统验证；
-- 没有全局快捷键；panel 是私有桌面内唯一返回入口；
+- 主桌面没有「打开复验桌面」的全局快捷键；进入私有桌面后由 panel（按钮 / `Ctrl+Alt+Shift+F12`）返回；
 - 不是安全边界：同一用户会话内，程序仍可访问同一文件系统。

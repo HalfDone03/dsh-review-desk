@@ -6,7 +6,7 @@
 ![node](https://img.shields.io/badge/node-%3E%3D20.3-339933)
 ![dsh](https://img.shields.io/badge/dsh-%3E%3D0.2.1--rc.2-5B4BFF)
 ![license](https://img.shields.io/badge/license-MIT-green)
-![status](https://img.shields.io/badge/status-0.4.1%20preview-orange)
+![status](https://img.shields.io/badge/status-0.4.2%20preview-orange)
 
 ---
 
@@ -25,8 +25,8 @@ DSH 在跑长任务时，用户仍然要在当前桌面工作。把 DSH 窗口�
 - `return`：切回默认桌面，并尽量恢复原前台窗口；
 - `close`：切回默认桌面，结束 Edge/panel，删除 Edge profile；
 - `status`：查看活动桌面和进程；
-- `run`：在复验桌面里执行 PowerShell 任务，返回退出码和输出，**不切屏**；
-- `task`：启动独立 DSH headless Agent，在复验桌面完成一次完整任务，返回最终答案，**不切屏**；
+- `run`：在复验桌面里执行 PowerShell 任务，返回退出码和输出，**不切屏**；超时由 `runTimeoutSeconds` 控制，输出按 `runOutputLimit` 截断；
+- `task`：启动独立 DSH headless Agent，在复验桌面完成一次完整任务，返回最终答案，**不切屏**；超时由 `taskTimeoutSeconds` 控制，同样按 `runOutputLimit` 截断；
 - `list` / `show`：查看最近复验记录；
 - `audit`：查看桌面动作审计。
 
@@ -71,6 +71,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
 
 `prepare` 后 `status` 应该显示 `active=Default`，但 `desktop=DSH-Review-Desk`、`browserPid`/`panelPid` 已存在。这就是正确状态：**桌面在后台，当前桌面没变**。
+
+### 从复验桌面返回
+
+私有桌面里唯一的可见入口是右下角的返回 panel（配置了 `panelSeconds` 时会自动返回）：
+
+- 点「返回工作桌面」，或按 `Ctrl+Alt+Shift+F12`：切回默认桌面，Edge 留在后台，下次 `open` 直接复用；
+- 点「关闭复验桌面」：切回默认桌面，并按 `close` 的语义清理 Edge、Edge profile 和状态文件。
+
+`Ctrl+Alt+Shift+F12` 由 panel 自己注册，因此只在该私有桌面处于前台时生效。注册失败（组合被别的程序占用）只写日志，panel 的两个按钮仍然可用。
 
 ### 在复验桌面跑任务
 
@@ -118,7 +127,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 4. `run` 用同一个 `lpDesktop` 启动 `powershell.exe`，任务输出重定向到日志文件，GUI 子进程继承私有桌面；
 5. `SwitchDesktop` 只在 `open`/`return` 时调用；
 6. Edge 进程按 `--user-data-dir` 的绝对 profile 路径通过 WMI 识别，避免 Edge 根进程退出后漏杀子进程；
-7. panel 是私有桌面内唯一可见的返回入口；全局快捷键尚未接入 Host。
+7. panel 是私有桌面内唯一可见的返回入口，自带按钮和 `Ctrl+Alt+Shift+F12` 热键；主桌面侧的「打开复验桌面」全局快捷键尚未接入 Host。
 
 更细的设计见 [docs/architecture.md](docs/architecture.md)。
 
@@ -258,7 +267,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\uninstall.ps1 -Pur
 - 焦点恢复是 best-effort：`SwitchDesktop` 本身不保证恢复原前台窗口，helper 会调用 `SetForegroundWindow`；
 - Edge/panel 用 `taskkill /T /F` + WMI profile 匹配清理，不是 Job Object；后续会换成 Job Object + PID 树 fallback；
 - 多显示器 / 125–200% DPI / RDP / 全屏 / 锁屏 / UAC 尚未系统验证；
-- 私有桌面没有任务栏，panel 是唯一可见返回入口；全局快捷键尚未接入 Host；
+- 私有桌面没有任务栏；进入后靠 panel 的按钮或 `Ctrl+Alt+Shift+F12` 返回（主桌面没有「打开复验桌面」的全局快捷键）；
 - `open` 会切换当前桌面；远程会话/演示场景请谨慎使用。
 
 ## 故障排查
@@ -294,7 +303,35 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-helper.ps1
 
 ## 版本更新
 
-当前版本：**0.2.0**
+当前版本：**0.4.2**
+
+### 0.4.2 — 2026-10-25
+
+- 补上 panel 一直没实现的热键 `Ctrl+Alt+Shift+F12`：panel 在自己的窗口上注册，只在私有桌面处于前台时生效，注册失败只写日志、按钮照常可用；
+- 修「关闭复验桌面」按钮：原先只切回默认桌面，现在按 `close` 的语义清理 Edge、Edge profile 和状态文件（panel 先从 state 副本里去掉自己的 pid，否则 `CloseState` 会先杀掉自己）；
+- `ensure` 启动 panel 时传入 `--state`，让 panel 知道状态文件位置。
+
+### 0.4.1 — 2026-10-24
+
+- 修桌面句柄过早关闭：任务进程还没退出就销毁了看似闲置的私有桌面，导致 `DeepSeekRuntime.exe` 启动失败（`0xC0000142`）；
+- 移除临时的 agent-debug 输出。
+
+### 0.4.0 — 2026-10-24
+
+- 新增 `/review-desk task <prompt>`：在私有复验桌面启动一个隔离的 DSH headless Agent；
+- 在 `taskHome` 下生成专用 worker profile（`base` + `headless` + `llm-pi-ai`），与桌面 profile 分开；
+- 任务文本走 UTF-8 文件 + `cmd` stdin（PowerShell 5.1 管道会丢中文）；
+- 从桌面 profile 读 provider `baseURL`，API key 依次取配置 / 环境变量 / `.credentials.yaml` 的 refs；
+- DSH 安装路径过长无法启动时，支持逐段解析 8.3 短路径；
+- 新增 `taskProfile`、`taskHome`、`taskAppPath`、`taskBinPath`、`taskProvider`、`taskModel`、`taskBaseURL`、`taskApiKeyEnv`、`taskApiKey`、`taskTimeoutSeconds`；
+- 只回传 worker 的最终答案，reasoning 留在 worker stderr。
+
+### 0.3.0 — 2026-10-24
+
+- 新增 `/review-desk run <PowerShell>`：通过 `STARTUPINFO.lpDesktop` 在私有复验桌面执行任务，任务及其 GUI 子进程不会出现在当前桌面；
+- 把任务的 stdout/stderr 和退出码回传 DSH 会话，不切屏；
+- 新增 `runTimeoutSeconds`（120）和 `runOutputLimit`（20000）配置；
+- 修 Windows PowerShell 5.1 在非 ASCII 路径下对脚本 UTF-8 BOM 的处理。
 
 ### 0.2.0 — 2026-10-23
 
