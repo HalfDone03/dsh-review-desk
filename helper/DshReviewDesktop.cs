@@ -469,8 +469,9 @@ internal static class DshReviewDesktop
             Console.Error.WriteLine("desktop unavailable: " + desktop + " err=" + Marshal.GetLastWin32Error());
             return 4;
         }
-        CloseDesktop(desk);
-
+        // 不要在这里 CloseDesktop：如果桌面没有其他进程持有，关闭句柄会把
+        // 桌面销毁，Electron 子进程随后会以 0xC0000142 启动失败。等
+        // CreateProcessW 成功后再关。
         string powershell = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.System),
             @"WindowsPowerShell\v1.0\powershell.exe");
@@ -489,6 +490,7 @@ internal static class DshReviewDesktop
             IntPtr.Zero);
         if (hLog == INVALID_HANDLE_VALUE)
         {
+            CloseDesktop(desk);
             Console.Error.WriteLine("cannot open log: " + fullLog + " err=" + Marshal.GetLastWin32Error());
             return 4;
         }
@@ -520,6 +522,7 @@ internal static class DshReviewDesktop
         Log("run CreateProcess desktop=" + desktop + " ok=" + ok + " err=" + createError);
         if (!ok)
         {
+            CloseDesktop(desk);
             Console.Error.WriteLine("CreateProcess failed err=" + createError);
             return 5;
         }
@@ -541,6 +544,7 @@ internal static class DshReviewDesktop
         GetExitCodeProcess(pi.hProcess, out exitCode);
         CloseHandle(pi.hThread);
         CloseHandle(pi.hProcess);
+        CloseDesktop(desk);
 
         Console.WriteLine(
             "OK run pid=" + pid +

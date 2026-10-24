@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 — 2026-10-24
+
+- Keep the private-desktop handle open until the task process exits; closing it early destroyed an otherwise-unused desktop and made `DeepSeekRuntime.exe` fail with `0xC0000142`.
+- Remove the temporary agent-debug output.
+
 ## 0.4.0 — 2026-10-24
 
 - Add `/review-desk task <prompt>`: start an isolated DSH headless Agent on the private review desktop.

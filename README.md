@@ -6,7 +6,7 @@
 ![node](https://img.shields.io/badge/node-%3E%3D20.3-339933)
 ![dsh](https://img.shields.io/badge/dsh-%3E%3D0.2.1--rc.2-5B4BFF)
 ![license](https://img.shields.io/badge/license-MIT-green)
-![status](https://img.shields.io/badge/status-0.4.0%20preview-orange)
+![status](https://img.shields.io/badge/status-0.4.1%20preview-orange)
 
 ---
 
