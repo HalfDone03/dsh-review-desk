@@ -39,7 +39,7 @@ internal static class DshReviewDesktop
             try { Console.OutputEncoding = Encoding.UTF8; } catch { }
             if (args.Length == 0)
             {
-                Console.Error.WriteLine("usage: DshReviewDesktop.exe <ensure|open|return|close|status|run|panel|watchdog> [options]");
+                Console.Error.WriteLine("usage: DshReviewDesktop.exe <ensure|open|return|close|status|run|shortpath|panel|watchdog> [options]");
                 return 2;
             }
 
@@ -55,6 +55,7 @@ internal static class DshReviewDesktop
                 case "close": return Close(a);
                 case "status": return Status(a);
                 case "run": return Run(a);
+                case "shortpath": return ShortPath(a);
                 case "panel": return Panel(a);
                 case "watchdog": return Watchdog(a);
                 default:
@@ -549,6 +550,64 @@ internal static class DshReviewDesktop
         return timedOut ? 124 : (int)exitCode;
     }
 
+    private static int ShortPath(Dictionary<string, string> a)
+    {
+        string path = Get(a, "--path", "");
+        if (path.Length == 0)
+        {
+            Console.Error.WriteLine("shortpath requires --path");
+            return 4;
+        }
+        string full = Path.GetFullPath(path);
+        string shortPath = ToShortPath(full);
+        if (shortPath.Length == 0)
+        {
+            Console.Error.WriteLine("cannot resolve short path: " + full);
+            return 5;
+        }
+        Console.WriteLine(shortPath);
+        return 0;
+    }
+
+    private static string ToShortPath(string full)
+    {
+        string root = Path.GetPathRoot(full);
+        if (string.IsNullOrEmpty(root)) return "";
+        string current = root;
+        string rest = full.Substring(root.Length);
+        string[] parts = rest.Split(new char[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (string part in parts)
+        {
+            string alternate = FindAlternateName(current, part);
+            if (alternate.Length == 0) alternate = part;
+            current = Path.Combine(current, alternate);
+        }
+        return current;
+    }
+
+    private static string FindAlternateName(string directory, string name)
+    {
+        WIN32_FIND_DATAW data = new WIN32_FIND_DATAW();
+        IntPtr h = FindFirstFileW(Path.Combine(directory, "*"), out data);
+        if (h == INVALID_HANDLE_VALUE) return "";
+        try
+        {
+            do
+            {
+                if (string.Equals(data.cFileName, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return data.cAlternateFileName ?? "";
+                }
+            }
+            while (FindNextFileW(h, out data));
+        }
+        finally
+        {
+            FindClose(h);
+        }
+        return "";
+    }
+
     private static bool LaunchOnDesktop(string exe, string args, string desktop, bool noWindow, out int pid)
     {
         pid = 0;
@@ -760,6 +819,26 @@ internal static class DshReviewDesktop
         public uint dwThreadId;
     }
 
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct WIN32_FIND_DATAW
+    {
+        public uint dwFileAttributes;
+        public uint ftCreationTimeLow;
+        public uint ftCreationTimeHigh;
+        public uint ftLastAccessTimeLow;
+        public uint ftLastAccessTimeHigh;
+        public uint ftLastWriteTimeLow;
+        public uint ftLastWriteTimeHigh;
+        public uint nFileSizeHigh;
+        public uint nFileSizeLow;
+        public uint dwReserved0;
+        public uint dwReserved1;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        public string cFileName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 14)]
+        public string cAlternateFileName;
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     private struct SECURITY_ATTRIBUTES
     {
@@ -832,4 +911,16 @@ internal static class DshReviewDesktop
 
     [DllImport("kernel32.dll")]
     private static extern IntPtr GetStdHandle(int nStdHandle);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern uint GetShortPathNameW(string lpszLongPath, StringBuilder lpszShortPath, uint cchBuffer);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern IntPtr FindFirstFileW(string lpFileName, out WIN32_FIND_DATAW lpFindFileData);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool FindNextFileW(IntPtr hFindFile, out WIN32_FIND_DATAW lpFindFileData);
+
+    [DllImport("kernel32.dll")]
+    private static extern bool FindClose(IntPtr hFindFile);
 }

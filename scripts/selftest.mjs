@@ -182,8 +182,11 @@ function feedSuccess(store) {
 	const config = normalizeConfig({});
 	assert.equal(config.runTimeoutSeconds, 120);
 	assert.equal(config.runOutputLimit, 20000);
+	assert.equal(config.taskProfile, "review");
+	assert.equal(config.taskTimeoutSeconds, 600);
 	assert.throws(() => normalizeConfig({ runTimeoutSeconds: -1 }), RangeError);
 	assert.throws(() => normalizeConfig({ runOutputLimit: 10 }), RangeError);
+	assert.throws(() => normalizeConfig({ taskProfile: " " }), TypeError);
 
 	let definition;
 	const ctx = {
@@ -210,6 +213,10 @@ function feedSuccess(store) {
 	const result = await definition.handler({ rawInput: "run" });
 	assert.equal(result.kind, "error");
 	assert.match(result.text, /用法/u);
+
+	const task = await definition.handler({ rawInput: "task" });
+	assert.equal(task.kind, "error");
+	assert.match(task.text, /用法/u);
 }
 
 console.log("OK 8 test groups");

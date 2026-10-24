@@ -1,12 +1,12 @@
 # dsh-review-desk
 
-> 把 DSH Web UI 和复验任务放到一个私有 Win32 桌面：需要复验时切过去，平时主桌面完全不受影响。
+> 把 DSH Web UI 和完整 Agent 任务放到一个私有 Win32 桌面：需要复验时切过去，平时主桌面完全不受影响。
 
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D4)
 ![node](https://img.shields.io/badge/node-%3E%3D20.3-339933)
 ![dsh](https://img.shields.io/badge/dsh-%3E%3D0.2.1--rc.2-5B4BFF)
 ![license](https://img.shields.io/badge/license-MIT-green)
-![status](https://img.shields.io/badge/status-0.3.0%20preview-orange)
+![status](https://img.shields.io/badge/status-0.4.0%20preview-orange)
 
 ---
 
@@ -14,9 +14,9 @@
 
 DSH 在跑长任务时，用户仍然要在当前桌面工作。把 DSH 窗口直接切来切去，会打断输入、抢焦点，也容易误操作。
 
-`dsh-review-desk` 不改 DSH 的 Electron 窗口，也不启动第二个 DSH 实例。它在后台创建一个**私有 Win32 桌面**，把 Edge app 模式的 DSH Web UI 放进去；只有用户显式执行 `open` 时才切过去。
+`dsh-review-desk` 不改 DSH 的 Electron 窗口，也不启动第二个带 GUI/Web 的 DSH 实例。它在后台创建一个**私有 Win32 桌面**，把 Edge app 模式的 DSH Web UI 放进去；只有用户显式执行 `open` 时才切过去。
 
-`run` 还可以把一段 PowerShell 任务直接放到这个私有桌面执行：任务进程及其 GUI 子进程都不会出现在当前桌面。
+`run` 可以把一段 PowerShell 任务直接放到这个私有桌面执行；`task` 更会启动一个独立的 **DSH headless Agent**，让完整的一次 Agent 任务也在私有桌面里跑完，只把最终答案回传当前会话。
 
 ## 它做什么
 
@@ -26,15 +26,17 @@ DSH 在跑长任务时，用户仍然要在当前桌面工作。把 DSH 窗口�
 - `close`：切回默认桌面，结束 Edge/panel，删除 Edge profile；
 - `status`：查看活动桌面和进程；
 - `run`：在复验桌面里执行 PowerShell 任务，返回退出码和输出，**不切屏**；
+- `task`：启动独立 DSH headless Agent，在复验桌面完成一次完整任务，返回最终答案，**不切屏**；
 - `list` / `show`：查看最近复验记录；
 - `audit`：查看桌面动作审计。
 
 ## 它不做什么
 
 - 不是 Windows 11 虚拟桌面：私有桌面没有 Explorer 任务栏，也不在 `Win+Tab` 列表里；
-- 不是安全沙箱：它只隔离 UI，不隔离权限、文件、网络；`run` 以当前用户权限执行，不做权限降级；
+- 不是安全沙箱：它只隔离 UI，不隔离权限、文件、网络；`run`/`task` 以当前用户权限执行，不做权限降级；
 - 不做硬性 CPU/GPU 隔离：资源低干扰是 best-effort；
 - 不自动审批、不自动复验、不复制会话；
+- 不启动第二个带 GUI/Web 的 DSH 实例；`task` 只启动一次性 headless worker，用完退出；
 - 不在任何自动流程里调用 `open`。
 
 ## 快速开始
@@ -60,7 +62,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 
 ```text
 /review-desk prepare     # 后台准备，不切屏
-/review-desk run Get-ChildItem   # 在复验桌面跑任务，不切屏
+/review-desk run Get-ChildItem   # 在复验桌面跑命令，不切屏
+/review-desk task "跑一遍测试并总结"  # 启动独立 headless Agent，不切屏
 /review-desk list        # 看最近复验记录
 /review-desk open        # 显式切到复验桌面
 /review-desk return      # 切回工作桌面
@@ -85,7 +88,25 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 - 超时由 `runTimeoutSeconds` 控制，超时会按进程树终止；
 - **不调用 `SwitchDesktop`**，当前桌面保持不变。
 
-边界：`run` 是命令级任务通道，不会复制 DSH 的 Agent 循环；它适合验证脚本、测试命令、启动需要隔离窗口的程序。完整的“第二个 DSH Agent 在私有桌面跑”仍是后续工作。
+### 完整 Agent 任务
+
+```text
+/review-desk task 跑一遍测试并总结失败原因
+/review-desk task 检查 README 和实际命令是否一致
+```
+
+`task` 的行为：
+
+- 在 `taskHome`（默认 `%LOCALAPPDATA%\dsh-review-desk\worker-home`）下生成一个独立 `review` profile；
+- profile 只包含 `@deepseek-ai/dsh-base`、`@deepseek-ai/dsh-headless` 和 `@deepseek-ai/dsh-llm-pi-ai`，不和桌面 profile 抢锁/会话；
+- 用 `DSH_HOME=<worker-home>` 启动 `DeepSeekRuntime.exe` 的 headless 模式，进程本身通过 `lpDesktop` 放在复验桌面；
+- 任务文本走 stdin 文件，避免中文/引号在 PowerShell 管道里丢失；
+- 只回传最终答案；reasoning 留在 worker 的 stderr，不刷屏；
+- 超时由 `taskTimeoutSeconds` 控制，超时按进程树终止。
+
+默认会从 desktop profile 读取 `baseURL`，并从 `%DSH_HOME%\.credentials.yaml` 的 `refs` 里读取对应的 API key；也可以显式配置 `taskBaseURL` / `taskApiKey`。
+
+边界：`task` 是**一次性 headless Agent**，不是第二个带 GUI/Web 的 DSH；它没有当前会话的上下文，需要把任务写完整。
 
 ## 工作方式
 
@@ -111,6 +132,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 | `/review-desk close` | 结束进程并清理 profile | 先切回 |
 | `/review-desk status` | 查看活动桌面/进程 | 否 |
 | `/review-desk run <命令>` | 在复验桌面执行 PowerShell，返回输出 | 否 |
+| `/review-desk task <任务>` | 在复验桌面启动独立 headless Agent，返回最终答案 | 否 |
 | `/review-desk list` | 最近 20 条复验记录 | 否 |
 | `/review-desk show <turn>` | 单条复验记录 JSON | 否 |
 | `/review-desk audit` | 最近 20 条审计动作 | 否 |
@@ -147,6 +169,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 | `auditTurns` | `false` | 是否把每个 `turn/end` 写审计 |
 | `runTimeoutSeconds` | `120` | `run` 任务超时秒数；超时会终止该任务 |
 | `runOutputLimit` | `20000` | 返回给会话的最大输出字符数 |
+| `taskProfile` | `review` | headless worker 的 profile 名 |
+| `taskHome` | `""` | worker 的独立 `DSH_HOME`；留空用状态文件同目录的 `worker-home` |
+| `taskAppPath` | `""` | DSH 可执行文件；留空用 `process.execPath` |
+| `taskBinPath` | `""` | DSH CLI 的 `bin.js`；留空从 app 目录推导 |
+| `taskProvider` | `openai-completions` | worker 的 provider |
+| `taskModel` | `gpt-6.1-sol` | worker 的模型 |
+| `taskBaseURL` | `""` | worker 的 API baseURL；留空从 desktop profile 读取 |
+| `taskApiKeyEnv` | `OPENAI_COMPLETIONS_API_KEY` | worker 的 API key 环境变量名 |
+| `taskApiKey` | `""` | worker 的 API key；留空读环境变量或 `.credentials.yaml` |
+| `taskTimeoutSeconds` | `600` | 完整 Agent 任务超时秒数 |
 
 ## 复验记录
 

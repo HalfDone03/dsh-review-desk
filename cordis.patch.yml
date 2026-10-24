@@ -23,3 +23,5 @@
         auditTurns: false
         runTimeoutSeconds: 120
         runOutputLimit: 20000
+        taskProfile: 'review'
+        taskTimeoutSeconds: 600

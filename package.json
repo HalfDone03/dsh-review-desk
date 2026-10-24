@@ -1,8 +1,8 @@
 {
   "name": "dsh-review-desk",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
-  "description": "DSH 后台复验桌面：界面和任务都在私有 Win32 桌面，需要复验时切过去，平时不影响当前桌面。",
+  "description": "DSH 后台复验桌面：界面和完整 Agent 任务都在私有 Win32 桌面，需要复验时切过去，平时不影响当前桌面。",
   "keywords": [
     "dsh",
     "dsh-plugin",

@@ -7,7 +7,7 @@
 ## 非目标
 
 - 不实现 Windows 11 虚拟桌面；
-- 不启动第二个 DSH 实例；
+- 不启动第二个带 GUI/Web 的 DSH 实例；`task` 只启动一次性 headless worker；
 - 不移动 DSH 的 Electron 窗口；
 - 不做安全沙箱或权限隔离；
 - 不保证硬实时、CPU/GPU 隔离。
@@ -19,8 +19,9 @@
 | Host 插件 | `lib/index.js` | 命令、配置、helper 生命周期、Host 服务 |
 | `ReviewStore` | `lib/review.js` | 从 `session/event` 生成复验包，内存队列 |
 | `AuditLog` | `lib/audit.js` | JSONL 动作审计，2 MB 滚动 |
-| Native helper | `helper/DshReviewDesktop.cs` | 桌面创建/切换/关闭、Edge/panel、任务进程、WMI 进程识别 |
+| Native helper | `helper/DshReviewDesktop.cs` | 桌面创建/切换/关闭、Edge/panel、任务进程、短路径、WMI 进程识别 |
 | Edge app mode | 外部进程 | 加载 DSH Web UI |
+| Headless worker | `DeepSeekRuntime.exe` + 独立 profile | 一次完整 Agent 任务，运行在私有桌面 |
 | Return panel | helper 内 WinForms | 私有桌面内唯一的可见返回入口 |
 
 ## 启动与准备
@@ -57,7 +58,18 @@ panelPid=...
 5. 等待进程结束；超时则 `TerminateProcess` + `taskkill /T` 收进程树；
 6. 返回 exit code 和输出，**不调用 `SwitchDesktop`**。
 
-任务派生的 GUI 子进程继承私有桌面；因此 `run notepad` 不会在主桌面弹窗。边界：这是命令级任务通道，不是第二个 DSH Agent 进程。
+任务派生的 GUI 子进程继承私有桌面；因此 `run notepad` 不会在主桌面弹窗。
+
+`task`（完整 Agent）：
+
+1. Host 在 `taskHome` 下生成一个独立 profile：`@deepseek-ai/dsh-base` + `@deepseek-ai/dsh-headless` + `@deepseek-ai/dsh-llm-pi-ai`；
+2. profile 的 `cordis.patch.yml` 写入 provider/model/baseURL；API key 只在运行时通过环境变量注入；
+3. Host 用 `cmd.exe` 的 stdin/stdout 重定向启动 `DeepSeekRuntime.exe` 的 headless 模式，任务文本从文件走 stdin；
+4. 因为 `DeepSeekRuntime.exe` 是 `powershell.exe` 的子进程，它继承 `lpDesktop = WinSta0\DSH-Review-Desk`；
+5. worker 只把最终答案写到 stdout；reasoning 留在 stderr；
+6. 超时按进程树终止；worker 退出后 profile/会话留在独立 `DSH_HOME`，不污染当前会话。
+
+边界：`task` 是一次性 headless Agent，不是第二个带 GUI/Web 的 DSH 实例。
 
 ## 切屏
 
@@ -95,6 +107,7 @@ helper 是独立的 `.exe`，不是长期服务；Host 每次动作启动一次�
 | `close` | 返回、结束进程、删 profile/state | 先返回 |
 | `status` | 打印 `k=v` 状态 | 否 |
 | `run` | 在私有桌面执行 PowerShell 任务并等待 | 否 |
+| `shortpath` | 把长路径逐段转成 8.3 短路径 | 否 |
 | `panel` | 私有桌面内的返回 panel | 否 |
 | `watchdog` | 定时兜底返回 | 是（到点） |
 

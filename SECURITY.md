@@ -8,12 +8,15 @@
 - It does not prevent another process from reading the same files, network, or DSH session store.
 - The native helper does not read DSH session content.
 - `/review-desk run` executes arbitrary PowerShell with the current user's full token and filesystem/network access. It is a convenience for verification tasks, **not** a sandbox. Do not run untrusted commands with it.
-- The host plugin does not write tool output, tool argument values, tokens, or session text to audit logs by default. The `run` audit entry keeps only a 200-character command prefix.
+- `/review-desk task` starts a headless DSH worker with the same user token. It reads the provider key from `taskApiKey`, the configured environment variable, or `%DSH_HOME%\.credentials.yaml` refs, and passes it to the child only through an environment variable. The key is written briefly to a local temporary `.ps1`, then deleted; it is never written to the audit log.
+- The worker profile lives under `taskHome` and may contain session logs produced by that worker. It is separate from the interactive DSH profile.
+- The host plugin does not write tool output, tool argument values, tokens, or session text to audit logs by default. The `run`/`task` audit entry keeps only a 200-character command/prompt prefix.
 
 ## Supported versions
 
 | Version | Supported |
 |---|---|
+| 0.4.x | yes |
 | 0.3.x | yes |
 | 0.2.x | yes |
 | 0.1.x | no |
