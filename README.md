@@ -6,7 +6,7 @@
 ![node](https://img.shields.io/badge/node-%3E%3D20.3-339933)
 ![dsh](https://img.shields.io/badge/dsh-%3E%3D0.2.1--rc.2-5B4BFF)
 ![license](https://img.shields.io/badge/license-MIT-green)
-![status](https://img.shields.io/badge/status-0.4.2%20preview-orange)
+![status](https://img.shields.io/badge/status-0.4.3%20preview-orange)
 
 ---
 
@@ -303,7 +303,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-helper.ps1
 
 ## 版本更新
 
-当前版本：**0.4.2**
+当前版本：**0.4.3**
+
+### 0.4.3 — 2026-10-25
+
+- 清理动作改到消息循环里执行：在跨进程 `SendMessage` 的点击调用栈里直接查 WMI，`ManagementObjectSearcher.Get()` 会抛 `InvalidCastException`（「指定的转换无效」），导致 `close` 按 profile 路径兜底结束 Edge 子进程的那一步总是静默失效；panel 现在先用 `BeginInvoke` 回到消息循环再清理；
+- WMI 查询失败时日志带上异常类型，不再只有 message。
 
 ### 0.4.2 — 2026-10-25
 

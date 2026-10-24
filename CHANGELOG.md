@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.3 — 2026-10-25
+
+- Run the panel's close cleanup off the click message: the cleanup ends Edge and then matches the remaining `msedge.exe` children with a WMI query. When the click arrived as a cross-process `SendMessage`, that query threw `InvalidCastException` from `InterfaceMarshaler.ConvertToNative` via `SecuredIWbemServicesHandler.ExecQuery_`, so the by-profile fallback silently never ran. The panel now hops back onto the message loop with `BeginInvoke` first.
+- Log the exception type when the WMI query still fails, instead of only its message.
+
 ## 0.4.2 — 2026-10-25
 
 - Implement the panel return hotkey the UI already advertised: the panel registers `Ctrl+Alt+Shift+F12` on its own window (the combination verified in the M0 spike) and posts the switch off `WndProc`, so returning no longer depends on clicking the panel. Registration failure is logged and leaves the buttons working.

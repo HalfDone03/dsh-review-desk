@@ -363,7 +363,13 @@ internal static class DshReviewDesktop
         quit.Width = 132;
         quit.Height = 34;
         quit.Location = new Point(160, 76);
-        quit.Click += delegate { CloseFromPanel(form, statePath); };
+        quit.Click += delegate
+        {
+            // The cleanup ends Edge and queries WMI; doing that inside a click that may
+            // arrive as a synchronous cross-process SendMessage leaves the WMI COM call
+            // failing with an InvalidCastException, so hop back onto the message loop first.
+            form.BeginInvoke(new Action(delegate { CloseFromPanel(form, statePath); }));
+        };
         form.Controls.Add(quit);
 
         if (seconds > 0)
@@ -751,7 +757,7 @@ internal static class DshReviewDesktop
         }
         catch (Exception ex)
         {
-            Log("FindProfileEdgePids failed: " + ex.Message);
+            Log("FindProfileEdgePids failed: " + ex.GetType().Name + ": " + ex.Message);
         }
         return pids;
     }

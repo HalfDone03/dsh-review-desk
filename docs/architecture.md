@@ -89,7 +89,7 @@ panelPid=...
 私有桌面里还有两条等价的返回路径，都由 panel 进程提供（`panel --state`）：
 
 - **返回工作桌面** 按钮 / `Ctrl+Alt+Shift+F12`：等同 `return`，Edge 留在后台；
-- **关闭复验桌面** 按钮：等同 `close`（先返回 Default，再收 Edge、删 Edge profile、删 state）；panel 会先把自己的 pid 从 state 副本里去掉，否则 `CloseState` 会在删 profile 之前把自己杀掉。
+- **关闭复验桌面** 按钮：等同 `close`（先返回 Default，再收 Edge、删 Edge profile、删 state）；panel 会先把自己的 pid 从 state 副本里去掉，否则 `CloseState` 会在删 profile 之前把自己杀掉。这条清理用 `BeginInvoke` 投递回消息循环再跑：直接在点击的调用栈里执行时，如果点击来自跨进程 `SendMessage`，WMI 查询会抛 `InvalidCastException`（`InterfaceMarshaler.ConvertToNative` → `SecuredIWbemServicesHandler.ExecQuery_`），第 4 步的兜底清理就静默失效。
 
 ### `close`
 
